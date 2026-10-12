@@ -1,0 +1,182 @@
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from control_msgs.action import FollowJointTrajectory
+from trajectory_msgs.msg import JointTrajectoryPoint
+from builtin_interfaces.msg import Duration
+from ur_msgs.srv import SetIO
+import time
+
+class UR3eActionController(Node):
+    def __init__(self):
+        super().__init__('ur_action_controller')
+
+        # 1. Robot Configuration
+        self.declare_parameter('robot_id', 1) 
+        self.robot_id = self.get_parameter('robot_id').value
+
+        # 2. Action Client for Movement
+        self._action_client = ActionClient(
+            self, 
+            FollowJointTrajectory, 
+            '/scaled_joint_trajectory_controller/follow_joint_trajectory'
+        )
+
+        # 3. Service Client for all IO (Gripper and Conveyor)
+        self.io_client = self.create_client(SetIO, '/io_and_status_controller/set_io')
+
+        # 4. Waypoints
+        self.waypoint_names = [
+            "home", "above_pallet", "approach_cube", "pick_up_pos",
+            "raise_cube", "approach_conveyor", "drop_cube", "exit_conveyor"
+        ]
+        for name in self.waypoint_names:
+            self.declare_parameter(f'waypoints.{name}', [0.0]*6)
+
+        self.get_logger().info(f"UR3e Controller for Robot {self.robot_id} Initialized")
+
+    def send_move_goal(self, waypoint_name):
+        if not self._action_client.wait_for_server(timeout_sec=5.0):
+            return
+
+        joint_positions = self.get_parameter(f'waypoints.{waypoint_name}').value
+        goal_msg = FollowJointTrajectory.Goal()
+        # Using your confirmed joint order
+        goal_msg.trajectory.joint_names = [
+            'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint',
+            'wrist_2_joint', 'wrist_3_joint', 'shoulder_pan_joint'
+        ]
+
+        # Log the start of movement
+        self.get_logger().info(f"Moving to waypoint: {waypoint_name}")
+
+        point = JointTrajectoryPoint()
+        point.positions = joint_positions
+        point.time_from_start = Duration(sec=3, nanosec=0) 
+        goal_msg.trajectory.points.append(point)
+
+        send_goal_future = self._action_client.send_goal_async(goal_msg)
+        rclpy.spin_until_future_complete(self, send_goal_future)
+        
+        goal_handle = send_goal_future.result()
+        if not goal_handle.accepted:
+            return
+
+        result_future = goal_handle.get_result_async()
+        rclpy.spin_until_future_complete(self, result_future)
+
+        # After the result_future is complete
+        self.get_logger().info(f"Arrived at waypoint: {waypoint_name}")
+
+    def pulse_gripper(self, state):
+        """
+        PULSE LOGIC:
+        state 1 (Close): TO1 High, TO0 Low -> Wait -> Both Low
+        state 0 (Open):  TO0 High, TO1 Low -> Wait -> Both Low
+        """
+        if not self.io_client.wait_for_service(timeout_sec=1.0):
+            return
+
+        # 1. TRIGGER THE MOVE
+        req_pulse = SetIO.Request()
+        req_pulse.fun = SetIO.Request.FUN_SET_DIGITAL_OUT
+
+        action = "Closing" if state == 1 else "Opening"
+        self.get_logger().info(f"Gripper: {action}...")
+
+        if state == 1: # CLOSE
+            # Set Close Pin High, Open Pin Low
+            self._set_tool_io(SetIO.Request.PIN_TOOL_DOUT1, 1.0)
+            self._set_tool_io(SetIO.Request.PIN_TOOL_DOUT0, 0.0)
+        else: # OPEN
+            # Set Open Pin High, Close Pin Low
+            self._set_tool_io(SetIO.Request.PIN_TOOL_DOUT0, 1.0)
+            self._set_tool_io(SetIO.Request.PIN_TOOL_DOUT1, 0.0)
+
+        # 2. WAIT for the physical mechanism to move
+        time.sleep(0.5)
+
+        # 3. RESET BOTH TO 0 (The robot maintains position)
+        self._set_tool_io(SetIO.Request.PIN_TOOL_DOUT0, 0.0)
+        self._set_tool_io(SetIO.Request.PIN_TOOL_DOUT1, 0.0)
+
+        self.get_logger().info(f"Gripper: {action} Complete (Pins Reset)")
+
+    def _set_tool_io(self, pin, state):
+        """Helper to send SetIO requests quickly"""
+        req = SetIO.Request()
+        req.fun = SetIO.Request.FUN_SET_DIGITAL_OUT
+        req.pin = pin
+        req.state = float(state)
+        self.io_client.call_async(req)
+
+    def power_conveyor(self, power):
+        if not self.io_client.wait_for_service(timeout_sec=1.0):
+            return
+        
+        status = f"Turning ON (Power: {power})" if power > 0 else "Turning OFF"
+        self.get_logger().info(f"Conveyor: {status}")
+        
+        # Robot 1/2: Port 0, Domain 0 (Current) | Robot 3: Port 1, Domain 1 (Voltage)
+        port = 0 if self.robot_id in [1, 2] else 1
+        domain = 0 if self.robot_id in [1, 2] else 1
+
+        # Set Analog Domain
+        domain_req = SetIO.Request()
+        domain_req.fun = 9 # FUN_SET_ANALOG_OUTPUT_DOMAIN
+        domain_req.pin = port
+        domain_req.state = float(domain)
+        self.io_client.call_async(domain_req)
+
+        # Set Power Level
+        power_req = SetIO.Request()
+        power_req.fun = SetIO.Request.FUN_SET_ANALOG_OUT
+        power_req.pin = port
+        power_req.state = float(power)
+        self.io_client.call_async(power_req)
+
+        
+
+def main():
+    rclpy.init()
+    node = UR3eActionController()
+
+    try:
+        time.sleep(1)
+        # MOVE the robot to a single waypoint:
+    	#   node.send_move_goal("<waypoint_name>")
+        #
+        # MOVE the robot through a set of waypoints
+        #   pick_sequence = ["above_block", "approach_block", "pick_up", "exit"]
+        #   for wp in pick_sequence:
+        #       node.send_move_goal(wp)
+        #
+        # OPEN the gripper:
+    	#   node.pulse_gripper(1)
+    	#
+    	# CLOSE the gripper:
+    	#   node.pulse_gripper(0)
+    	#
+    	# RUN Conveyor Belt:
+    	#   node.power_conveyor(0.8)
+    	#
+    	# STOP Conveyor Belt:
+    	#   node.power_conveyor(0.0)
+    	#
+    	# WAIT:
+    	#   time.sleep(<time in seconds>)
+
+
+        # Create your logic to:
+    	# 1. Pick up the block
+    	# 2. Place the block in front of the color sensor
+    	# 3. Clear the robot from the conveyor belt
+    	# 4. Clear the block by running the conveyor belt
+    	# 5. Loop 3 times
+
+
+    except KeyboardInterrupt:
+        pass
+
+    node.destroy_node()
+    rclpy.shutdown()

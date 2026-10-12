@@ -1,0 +1,31 @@
+ROBOT 3:
+
+############### Mini Project 2 ##################
+
+### UR ROBOT DRIVER ###
+
+ros2 launch mxet_ur_launch ex-ur3e-3.launch.py robot_ip:=192.168.1.33 ur_type:="ur3e" launch_rviz:=false
+
+
+### UR MOVEIT CONFIG ###
+
+ros2 launch mxet_ur_launch moveit-ur3-3.launch.py ur_type:="ur3e"
+
+
+### COLOR SENSOR ###
+
+ros2 run lab10 color_sensor
+
+
+### ROBOT PROGRAM ###
+
+ros2 run lab10 Section50X --ros-args -p robot_id:=1 --params-file ~/ros2_ws/src/lab10/config/lab10_Section50X.yaml
+
+    #Note: Replace X with your actual section
+
+
+### ADDITIONAL COMMANDS ###
+
+ros2 interface show sensor_msgs/msg/JointState 
+
+ros2 topic echo /joint_states --once
