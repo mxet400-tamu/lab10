@@ -1,0 +1,22 @@
+OFFLINE SIMULATION / DRY RUN (NO PHYSICAL HARDWARE REQUIRED):
+
+### 1. MOCK UR3e DRIVER (Runs controller manager, action servers, and SetIO service locally) ###
+
+ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur3e robot_ip:=127.0.0.1 use_mock_hardware:=true launch_rviz:=false
+
+
+### 2. MOVEIT 2 MOTION PLANNING (Opens RViz to visually see the robot move) ###
+
+ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur3e launch_rviz:=true
+
+
+### 3. MOCK COLOR SENSOR (Simulate ESP32 block detection without hardware) ###
+
+ros2 topic pub -r 1 /block_color std_msgs/msg/String "data: 'red'"
+
+
+### 4. ROBOT CONTROLLER PROGRAM ###
+
+ros2 run lab10 Section50X --ros-args -p robot_id:=1 --params-file ~/ros2_ws/src/lab10/config/lab10_Section50X.yaml
+
+    # Note: Replace X with your actual section (e.g., Section501)
