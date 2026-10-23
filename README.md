@@ -179,3 +179,4 @@ Before completing your lab report, verify:
 * [ ] Conveyor starts and stops via `power_conveyor()`.
 * [ ] Color sensor node broadcasts color on `/block_color`.
 * [ ] Robot successfully picks, places, clears, and repeats for 3 complete cycles.
+
