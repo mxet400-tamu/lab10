@@ -20,3 +20,4 @@ ros2 topic pub -r 1 /block_color std_msgs/msg/String "data: 'red'"
 ros2 run lab10 Section50X --ros-args -p robot_id:=1 --params-file ~/ros2_ws/src/lab10/config/lab10_Section50X.yaml
 
     # Note: Replace X with your actual section (e.g., Section501)
+
