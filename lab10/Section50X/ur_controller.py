@@ -4,7 +4,8 @@ from rclpy.action import ActionClient
 from control_msgs.action import FollowJointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
-from ur_msgs.srv import SetIO
+from ur_msgs.srv import SetIO, SetAnalogOutput
+from ur_msgs.msg import Analog
 import time
 
 class UR3eActionController(Node):
@@ -22,8 +23,9 @@ class UR3eActionController(Node):
             '/scaled_joint_trajectory_controller/follow_joint_trajectory'
         )
 
-        # 3. Service Client for all IO (Gripper and Conveyor)
+        # 3. Service Clients for IO (Gripper and Conveyor)
         self.io_client = self.create_client(SetIO, '/io_and_status_controller/set_io')
+        self.analog_client = self.create_client(SetAnalogOutput, '/io_and_status_controller/set_analog_output')
 
         # 4. Waypoints
         self.waypoint_names = [
@@ -108,32 +110,28 @@ class UR3eActionController(Node):
         req.fun = SetIO.Request.FUN_SET_DIGITAL_OUT
         req.pin = pin
         req.state = float(state)
-        self.io_client.call_async(req)
+        future = self.io_client.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=0.5)
 
     def power_conveyor(self, power):
-        if not self.io_client.wait_for_service(timeout_sec=1.0):
+        if not self.analog_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().error("Conveyor service '/io_and_status_controller/set_analog_output' not available!")
             return
         
         status = f"Turning ON (Power: {power})" if power > 0 else "Turning OFF"
         self.get_logger().info(f"Conveyor: {status}")
         
-        # Robot 1/2: Port 0, Domain 0 (Current) | Robot 3: Port 1, Domain 1 (Voltage)
+        # Robot 1/2: Port 0 | Robot 3: Port 1
         port = 0 if self.robot_id in [1, 2] else 1
-        domain = 0 if self.robot_id in [1, 2] else 1
 
-        # Set Analog Domain
-        domain_req = SetIO.Request()
-        domain_req.fun = 9 # FUN_SET_ANALOG_OUTPUT_DOMAIN
-        domain_req.pin = port
-        domain_req.state = float(domain)
-        self.io_client.call_async(domain_req)
-
-        # Set Power Level
-        power_req = SetIO.Request()
-        power_req.fun = SetIO.Request.FUN_SET_ANALOG_OUT
-        power_req.pin = port
-        power_req.state = float(power)
-        self.io_client.call_async(power_req)
+        # Use SetAnalogOutput to explicitly set domain to VOLTAGE (0-10V) and output level
+        req = SetAnalogOutput.Request()
+        req.data.pin = port
+        req.data.domain = Analog.VOLTAGE
+        req.data.state = float(power)
+        
+        future = self.analog_client.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=1.0)
 
         
 
@@ -152,16 +150,18 @@ def main():
         #       node.send_move_goal(wp)
         #
         # OPEN the gripper:
-    	#   node.pulse_gripper(1)
-    	#
-    	# CLOSE the gripper:
-    	#   node.pulse_gripper(0)
+        #   node.pulse_gripper(0)
+        #
+        # CLOSE the gripper:
+        #   node.pulse_gripper(1)
+        # 
     	#
     	# RUN Conveyor Belt:
-    	#   node.power_conveyor(0.8)
+        #   node.power_conveyor(0.8)
+        #
     	#
     	# STOP Conveyor Belt:
-    	#   node.power_conveyor(0.0)
+        #   node.power_conveyor(0.0)
     	#
     	# WAIT:
     	#   time.sleep(<time in seconds>)

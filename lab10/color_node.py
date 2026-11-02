@@ -158,11 +158,14 @@ def main(args=None):
     color_publisher = ColorPublisher(custom_args.station)
     
     try:
-        rclpy.spin(color_publisher) 
+        rclpy.spin(color_publisher)
+    except KeyboardInterrupt:
+        pass
     finally:
         # Clean up after the node is stopped
         color_publisher.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 # Entry point when the script is run directly

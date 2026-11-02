@@ -42,6 +42,15 @@ lab10/
 
 ## 3. Getting Started & Workspace Build
 
+### One-Time Setup: USB Color Sensor Permissions
+If this is your first time using the USB ESP32 color sensor on your laptop, add your user to the `dialout` group to allow serial access to `/dev/ttyUSB0`:
+
+```bash
+sudo usermod -a -G dialout $USER
+```
+*(Log out and log back in, or run `newgrp dialout` in your current terminal).*
+
+### Build Package
 Build the package from the root of your workspace:
 
 ```bash
