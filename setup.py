@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             "color_sensor = lab10.color_node:main",
             "Section50X = lab10.Section50X.ur_controller:main",
+            "Section500 = lab10.Section500.ur_controller:main",
             "Section501 = lab10.Section501.ur_controller:main",
             "Section502 = lab10.Section502.ur_controller:main",
             "Section503 = lab10.Section503.ur_controller:main",

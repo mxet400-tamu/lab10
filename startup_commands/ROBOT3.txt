@@ -1,31 +1,56 @@
-ROBOT 3:
+>>> LAUNCH COMMANDS <<<
+    ### Launch Order: ###
+        1. UR Robot Driver
+        2. Click Play on teach pendant (if Physically Connected)
+        3. UR MoveIt
+        4. Robot Program and Color Sensor
 
-############### Mini Project 2 ##################
+    ### UR ROBOT DRIVER ###
+        (Physically Connected)
+        ros2 launch mxet_ur_launch ex-ur3e-3.launch.py robot_ip:=192.168.1.33 ur_type:="ur3e" launch_rviz:=false
 
-### UR ROBOT DRIVER ###
+        (Simulation Only)
+        ros2 launch mxet_ur_launch ex-ur3e-3.launch.py robot_ip:=192.168.1.33 ur_type:="ur3e" launch_rviz:=false use_fake_hardware:=true
 
-ros2 launch mxet_ur_launch ex-ur3e-3.launch.py robot_ip:=192.168.1.33 ur_type:="ur3e" launch_rviz:=false
+    ### UR MOVEIT ###
+        ros2 launch mxet_ur_launch moveit-ur3-3.launch.py ur_type:="ur3e"
+
+    ### COLOR SENSOR ###
+        sudo chmod 666 /dev/ttyUSB0
+        ros2 run lab10 color_sensor
+
+    ### ROBOT PROGRAM ###
+        ros2 run lab10 Section50X --ros-args -p robot_id:=3 --params-file ~/ros2_ws/src/lab10/config/lab10_Section50X.yaml
+
+        Note: Replace X with your actual section
 
 
-### UR MOVEIT CONFIG ###
-
-ros2 launch mxet_ur_launch moveit-ur3-3.launch.py ur_type:="ur3e"
-
-
-### COLOR SENSOR ###
-
-ros2 run lab10 color_sensor
-
-
-### ROBOT PROGRAM ###
-
-ros2 run lab10 Section50X --ros-args -p robot_id:=1 --params-file ~/ros2_ws/src/lab10/config/lab10_Section50X.yaml
-
-    #Note: Replace X with your actual section
-
+>>> ROBOT CONTROL <<<
+    MOVE the robot to a single waypoint:
+        node.send_move_goal("<waypoint_name>")
+    
+    MOVE the robot through a set of waypoints:
+        pick_sequence = ["above_pallet", "approach_cube", "pick_up_pos", "raise_cube"]
+        for wp in pick_sequence:
+            node.send_move_goal(wp)
+    
+    OPEN the gripper:
+        node.pulse_gripper(0)
+    
+    CLOSE the gripper:
+        node.pulse_gripper(1)
+    
+    RUN Conveyor Belt:
+        node.power_conveyor(0.8)
+    
+    STOP Conveyor Belt:
+        node.power_conveyor(0.0)
+    
+    WAIT:
+        time.sleep(<time in seconds>)
 
 ### ADDITIONAL COMMANDS ###
 
-ros2 interface show sensor_msgs/msg/JointState 
+    ros2 interface show sensor_msgs/msg/JointState 
 
-ros2 topic echo /joint_states --once
+    ros2 topic echo /joint_states --once

@@ -43,10 +43,10 @@ class UR3eActionController(Node):
 
         joint_positions = self.get_parameter(f'waypoints.{waypoint_name}').value
         goal_msg = FollowJointTrajectory.Goal()
-        # Using your confirmed joint order
+        # Match the joint order published by /joint_states and recorded by joint_reader.py
         goal_msg.trajectory.joint_names = [
-            'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint',
-            'wrist_2_joint', 'wrist_3_joint', 'shoulder_pan_joint'
+            'elbow_joint', 'shoulder_lift_joint', 'shoulder_pan_joint',
+            'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint'
         ]
 
         # Log the start of movement
@@ -143,26 +143,26 @@ def main():
         time.sleep(1)
         # MOVE the robot to a single waypoint:
     	#   node.send_move_goal("<waypoint_name>")
-        #
+        
         # MOVE the robot through a set of waypoints
-        #   pick_sequence = ["above_block", "approach_block", "pick_up", "exit"]
+        #   pick_sequence = ["above_pallet", "approach_cube", "pick_up_pos", "raise_cube"]
         #   for wp in pick_sequence:
         #       node.send_move_goal(wp)
-        #
+        
         # OPEN the gripper:
         #   node.pulse_gripper(0)
-        #
+        
         # CLOSE the gripper:
         #   node.pulse_gripper(1)
-        # 
-    	#
+         
+    	
     	# RUN Conveyor Belt:
         #   node.power_conveyor(0.8)
-        #
-    	#
+        
+    	
     	# STOP Conveyor Belt:
         #   node.power_conveyor(0.0)
-    	#
+    	
     	# WAIT:
     	#   time.sleep(<time in seconds>)
 

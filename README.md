@@ -90,8 +90,8 @@ Before programming your pick-and-place sequence, you must calibrate the 8 joint 
    ```bash
    ros2 topic echo /joint_states --once
    ```
-3. Copy the 6 joint values under `position` into your YAML file in the order expected by your controller:
-   `[shoulder_lift, elbow, wrist_1, wrist_2, wrist_3, shoulder_pan]`
+3. Copy the 6 joint values under `position` into your YAML file in the order published by `/joint_states` and expected by your controller:
+   `[elbow_joint, shoulder_lift_joint, shoulder_pan_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]`
 
 ---
 
